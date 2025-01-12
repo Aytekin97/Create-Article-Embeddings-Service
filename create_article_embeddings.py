@@ -4,12 +4,26 @@ from loguru import logger
 from vector_manager import VectorManager
 from openai_client import OpenAiClient
 from datetime import datetime
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import json
 import requests
 import os
 
 
-def create_embeddings():
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust this for production (e.g., ["https://your-frontend.com"])
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.post("/api/generate-article-analysis")
+def main(company_name: str, titles: list[str]):
     logger.info("Method called")
     client = OpenAiClient()
     vector_manager = VectorManager()
@@ -20,7 +34,7 @@ def create_embeddings():
 
     # Send request to get news articles
     try:       
-        news = requests.get("https://fetch-news-to-display-production.up.railway.app/api/news/Tesla").json()
+        news = requests.get(f"https://fetch-news-to-display-production.up.railway.app/api/news/{company_name}").json()
         article_summaries = [item['summary'] for item in news if 'summary' in item]
     except Exception as e:
         logger.error(f"An error occured while sending a request to the DB to receive news articles: {e}")
@@ -58,4 +72,9 @@ def create_embeddings():
 
     logger.success("Embeddings created successfully for articles")
 
-create_embeddings()
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
